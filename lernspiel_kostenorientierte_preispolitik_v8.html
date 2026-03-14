@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lernspiel: Kostenorientierte Preispolitik</title>
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#fff; --text:#203040; --muted:#5d6b7a; --border:#d9e2ec;
+      --accent:#3a6ea5; --accent2:#6c8fc7; --ok:#1f9d61; --error:#c94a4a;
+      --stage1:#eef4ff; --stage2:#eefbf5; --stage3:#fff7ea; --shadow:0 10px 30px rgba(32,48,64,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(180deg,#f8fbff 0%,#f3f6fb 100%);color:var(--text)}
+    .wrap{max-width:980px;margin:0 auto;padding:20px}
+    .topbar{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .pill{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:10px 16px;box-shadow:var(--shadow);font-weight:700}
+    .progress{display:flex;gap:8px;flex-wrap:wrap}
+    .step{padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:#fff;color:var(--muted);font-weight:700}
+    .step.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+    .step.done{color:#fff;background:var(--ok);border-color:var(--ok)}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}
+    .hero{text-align:center;padding:38px 24px}
+    h1,h2,h3{margin-top:0}
+    h1{font-size:2rem;margin-bottom:10px}
+    .muted{color:var(--muted)}
+    .hidden{display:none}
+    .stage-banner{display:inline-block;padding:8px 14px;border-radius:999px;font-weight:700;margin-bottom:14px}
+    .stage1{background:var(--stage1)}
+    .stage2{background:var(--stage2)}
+    .stage3{background:var(--stage3)}
+    .btnrow{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+    button{border:0;border-radius:14px;padding:12px 18px;font-weight:700;font-size:1rem;cursor:pointer;background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+    button.secondary{background:#edf2f7;color:var(--text)}
+    button.good{background:var(--ok)}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .feedback{margin-top:16px;padding:14px 16px;border-radius:14px;display:none}
+    .feedback.show{display:block}
+    .feedback.ok{background:#ecf9f2;color:#186643;border:1px solid #bee6cf}
+    .feedback.error{background:#fff0f0;color:#8f2d2d;border:1px solid #efc1c1}
+    .sortable-list,.schema-box{display:grid;gap:12px;margin-top:14px}
+    .sort-item,.schema-line,.dropzone,.option-chip,.question-card{border:1px solid var(--border);border-radius:16px;background:#fff}
+    .sort-item,.schema-line{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .sort-controls{display:flex;gap:8px}
+    .mini{padding:8px 12px;border-radius:10px;font-size:.95rem}
+    .schema-box{margin-bottom:16px}
+    .schema-line{min-height:62px}
+    .blank-holder{width:100%}
+    .dropzone{
+      min-height:56px;padding:12px 14px;display:flex;align-items:center;justify-content:center;
+      border:2px dashed #9ab3cf;background:#f9fbff;color:#35506c;font-weight:700;text-align:center
+    }
+    .dropzone.filled{border-style:solid;background:#eefbf5;color:#1b5e3e}
+    .dropzone.over{background:#edf6ff}
+    .options-wrap{margin-top:10px}
+    .options-title{font-weight:700;margin-bottom:10px}
+    .options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+    .option-chip{padding:14px 16px;cursor:grab;box-shadow:var(--shadow);font-weight:700;text-align:center}
+    .option-chip.used{opacity:.45;cursor:not-allowed}
+    .option-chip:active{cursor:grabbing}
+    .streak{margin:10px 0 16px;font-weight:700;color:var(--accent)}
+    .question-card{padding:20px 22px;background:#fffdf8}
+    .question-title{font-size:1.2rem;font-weight:700;line-height:1.45;margin-bottom:18px}
+    .answers{display:grid;gap:12px}
+    .answer-btn{text-align:left;background:#fff;color:var(--text);border:1px solid var(--border);padding:15px 16px;border-radius:14px;box-shadow:none}
+    .answer-btn:hover{background:#f7fbff}
+    .final{text-align:center}
+    .trophy{font-size:4rem;margin-bottom:10px}
+    .big-time{font-size:2rem;font-weight:700;color:var(--accent);margin:12px 0}
+    .small-note{color:var(--muted)}
+    .hint-box{background:#f8fbff;border:1px solid var(--border);padding:14px 16px;border-radius:16px;margin-top:16px}
+    @media (max-width:640px){
+      .wrap{padding:14px}
+      .card{padding:18px}
+      h1{font-size:1.7rem}
+      .sort-item,.schema-line{padding:12px}
+      button{width:100%}
+      .btnrow{display:grid}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="pill">Zeit: <span id="timer">0,0</span> Sekunden</div>
+      <div class="progress">
+        <div class="step" id="progress-start">Start</div>
+        <div class="step" id="progress-1">Stufe 1</div>
+        <div class="step" id="progress-2">Stufe 2</div>
+        <div class="step" id="progress-3">Stufe 3</div>
+        <div class="step" id="progress-end">Pokal</div>
+      </div>
+    </div>
+
+    <div class="card hero" id="screen-start">
+      <div class="stage-banner stage1">Lernspiel: Kostenorientierte Preispolitik</div>
+      <h1>Preis-Challenge</h1>
+      <p>Schaffen Sie alle drei Stufen möglichst schnell. Erst am Ende erscheint der Pokal mit Ihrer Zeit.</p>
+      <div class="hint-box" style="text-align:left; max-width:760px; margin:0 auto 12px auto;">
+        <strong>Stufe 1:</strong> Fünf zusammenhängende Zeilen richtig ordnen.<br><br>
+        <strong>Stufe 2:</strong> Zwei fehlende Zeilen per Drag-and-Drop in einen zusammenhängenden Abschnitt ziehen.<br><br>
+        <strong>Stufe 3:</strong> Vier Multiple-Choice-Fragen richtig beantworten.
+      </div>
+      <div class="btnrow" style="justify-content:center;">
+        <button id="startGameBtn" class="good">Spiel starten</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="screen-stage1">
+      <div class="stage-banner stage1">Stufe 1: Ordnen Sie fünf zusammenhängende Zeilen des Schemas richtig.</div>
+      <p class="muted">Bei einem Fehler startet sofort ein neuer zusammenhängender Ausschnitt.</p>
+      <div class="sortable-list" id="sortableList"></div>
+      <div class="btnrow">
+        <button id="checkStage1">Prüfen</button>
+        <button class="secondary" id="newStage1">Neue Runde</button>
+      </div>
+      <div class="feedback" id="feedback1"></div>
+    </div>
+
+    <div class="card hidden" id="screen-stage2">
+      <div class="stage-banner stage2">Stufe 2: Ziehen Sie die fehlenden Zeilen in die richtigen Lücken.</div>
+      <p class="muted">Der Abschnitt ist immer zusammenhängend. Es gibt genau zwei richtige und zwei falsche Karten.</p>
+      <div class="schema-box" id="stage2Schema"></div>
+      <div class="options-wrap">
+        <div class="options-title">Ziehen Sie die passenden Karten in die beiden Lücken:</div>
+        <div class="options-grid" id="stage2Options"></div>
+      </div>
+      <div class="btnrow">
+        <button id="checkStage2">Prüfen</button>
+        <button class="secondary" id="newStage2">Neuer Ausschnitt</button>
+      </div>
+      <div class="feedback" id="feedback2"></div>
+    </div>
+
+    <div class="card hidden" id="screen-stage3">
+      <div class="stage-banner stage3">Stufe 3: Berechnen Sie einfache Preisstufen mit Taschenrechner oder im Kopf.</div>
+      <div class="streak">Richtige Antworten: <span id="streakValue">0</span> von 4</div>
+      <div class="question-card">
+        <div class="question-title" id="questionTitle"></div>
+        <div class="answers" id="answers"></div>
+      </div>
+      <div class="feedback" id="feedback3"></div>
+    </div>
+
+    <div class="card hidden final" id="screen-final">
+      <div class="trophy">🏆</div>
+      <h2>Geschafft!</h2>
+      <p>Sie haben alle drei Stufen erfolgreich abgeschlossen.</p>
+      <div class="big-time"><span id="finalTime">0,0</span> Sekunden</div>
+      <p class="small-note">Vergleichen Sie Ihre Zeit mit den Ergebnissen Ihrer Mitschüler und Mitschülerinnen. Oder wollen Sie Ihre Zeit verbessern?</p>
+      <div class="btnrow" style="justify-content:center;">
+        <button id="restartBtn" class="good">Nochmal spielen</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const schemaLines = [
+  "Einstandspreis",
+  "+ Handlungskostenzuschlag",
+  "= Selbstkosten",
+  "+ Gewinnzuschlag",
+  "= Barverkaufspreis",
+  "+ Kundenskonto",
+  "+ Vertreterprovision",
+  "= Zielverkaufspreis",
+  "+ Kundenrabatt",
+  "= Nettoverkaufspreis",
+  "+ Umsatzsteuer",
+  "= Bruttoverkaufspreis"
+];
+
+const stage3Questions = [
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Einstandspreis: 100 €<br>Handlungskostenzuschlag: 20 %<br><br><strong>Ermitteln Sie:</strong><br>Selbstkosten",
+    answers: ["120 €", "80 €", "125 €", "20 €"],
+    correct: 0,
+    explanation: "Richtig. Die Selbstkosten entsprechen hier 120 % des Einstandspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Einstandspreis: 200 €<br>Handlungskostenzuschlag: 50 %<br><br><strong>Ermitteln Sie:</strong><br>Selbstkosten",
+    answers: ["300 €", "250 €", "100 €", "400 €"],
+    correct: 0,
+    explanation: "Richtig. 100 % + 50 % = 150 %. Also: 200 € × 1,5 = 300 €."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Selbstkosten: 80 €<br>Gewinnzuschlag: 25 %<br><br><strong>Ermitteln Sie:</strong><br>Barverkaufspreis",
+    answers: ["100 €", "95 €", "105 €", "20 €"],
+    correct: 0,
+    explanation: "Richtig. Der Barverkaufspreis entspricht hier 125 % der Selbstkosten."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Selbstkosten: 120 €<br>Gewinnzuschlag: 10 %<br><br><strong>Ermitteln Sie:</strong><br>Barverkaufspreis",
+    answers: ["132 €", "130 €", "12 €", "110 €"],
+    correct: 0,
+    explanation: "Richtig. 120 € × 110 % = 132 €."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Barverkaufspreis: 95 €<br>Kundenskonto: 2 %<br>Vertreterprovision: 3 %<br><br><strong>Ermitteln Sie:</strong><br>Zielverkaufspreis",
+    answers: ["100 €", "95 €", "105 €", "90 €"],
+    correct: 0,
+    explanation: "Richtig. Bei Kundenskonto und Vertreterprovision wird es komisch: 95 € entsprechen hier 95 % des Zielverkaufspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Barverkaufspreis: 180 €<br>Kundenskonto: 4 %<br>Vertreterprovision: 6 %<br><br><strong>Ermitteln Sie:</strong><br>Zielverkaufspreis",
+    answers: ["200 €", "190 €", "198 €", "220 €"],
+    correct: 0,
+    explanation: "Richtig. 4 % und 6 % werden zusammen betrachtet. 180 € entsprechen also 90 % des Zielverkaufspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Nettoverkaufspreis: 90 €<br>Kundenrabatt: 10 %<br><br><strong>Ermitteln Sie:</strong><br>Zielverkaufspreis",
+    answers: ["100 €", "99 €", "81 €", "110 €"],
+    correct: 0,
+    explanation: "Richtig. Beim Kundenrabatt wird es komisch: 90 € entsprechen hier 90 % des Zielverkaufspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Nettoverkaufspreis: 150 €<br>Kundenrabatt: 25 %<br><br><strong>Ermitteln Sie:</strong><br>Zielverkaufspreis",
+    answers: ["200 €", "175 €", "187,50 €", "225 €"],
+    correct: 0,
+    explanation: "Richtig. 150 € entsprechen 75 % des Zielverkaufspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Nettoverkaufspreis: 80 €<br>Umsatzsteuer: 19 %<br><br><strong>Ermitteln Sie:</strong><br>Bruttoverkaufspreis",
+    answers: ["95,20 €", "99 €", "84,80 €", "15,20 €"],
+    correct: 0,
+    explanation: "Richtig. Hier wird wieder normal vorwärts gerechnet: 80 € × 119 % = 95,20 €."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Nettoverkaufspreis: 50 €<br>Umsatzsteuer: 20 %<br><br><strong>Ermitteln Sie:</strong><br>Bruttoverkaufspreis",
+    answers: ["60 €", "55 €", "70 €", "10 €"],
+    correct: 0,
+    explanation: "Richtig. 50 € × 120 % = 60 €."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Einstandspreis: 60 €<br>Handlungskostenzuschlag: 40 %<br><br><strong>Ermitteln Sie:</strong><br>Selbstkosten",
+    answers: ["84 €", "90 €", "100 €", "24 €"],
+    correct: 0,
+    explanation: "Richtig. Die Selbstkosten entsprechen hier 140 % des Einstandspreises."
+  },
+  {
+    question: "<strong>Gegeben ist Ihnen:</strong><br>Selbstkosten: 150 €<br>Gewinnzuschlag: 20 %<br><br><strong>Ermitteln Sie:</strong><br>Barverkaufspreis",
+    answers: ["180 €", "170 €", "175 €", "30 €"],
+    correct: 0,
+    explanation: "Richtig. 150 € × 120 % = 180 €."
+  }
+]
+
+const screens = {
+  start: document.getElementById('screen-start'),
+  stage1: document.getElementById('screen-stage1'),
+  stage2: document.getElementById('screen-stage2'),
+  stage3: document.getElementById('screen-stage3'),
+  final: document.getElementById('screen-final')
+};
+
+const timerEl = document.getElementById('timer');
+const finalTimeEl = document.getElementById('finalTime');
+
+let timerId = null;
+let startTime = null;
+let elapsedSeconds = 0;
+let stage1Excerpt = [];
+let stage1Current = [];
+let stage2Current = null;
+let stage2Assignments = {};
+let score = 0;
+let currentQuestion = null;
+let usedQuestionIndices = [];
+
+function shuffle(arr){
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function showScreen(name){
+  Object.values(screens).forEach(s => s.classList.add('hidden'));
+  screens[name].classList.remove('hidden');
+  updateProgress(name);
+}
+
+function updateProgress(name){
+  const ids = ['progress-start','progress-1','progress-2','progress-3','progress-end'];
+  ids.forEach(id => document.getElementById(id).classList.remove('active','done'));
+  if(name === 'start'){ document.getElementById('progress-start').classList.add('active'); }
+  if(name === 'stage1'){
+    document.getElementById('progress-start').classList.add('done');
+    document.getElementById('progress-1').classList.add('active');
+  }
+  if(name === 'stage2'){
+    document.getElementById('progress-start').classList.add('done');
+    document.getElementById('progress-1').classList.add('done');
+    document.getElementById('progress-2').classList.add('active');
+  }
+  if(name === 'stage3'){
+    document.getElementById('progress-start').classList.add('done');
+    document.getElementById('progress-1').classList.add('done');
+    document.getElementById('progress-2').classList.add('done');
+    document.getElementById('progress-3').classList.add('active');
+  }
+  if(name === 'final'){
+    document.getElementById('progress-start').classList.add('done');
+    document.getElementById('progress-1').classList.add('done');
+    document.getElementById('progress-2').classList.add('done');
+    document.getElementById('progress-3').classList.add('done');
+    document.getElementById('progress-end').classList.add('active');
+  }
+}
+
+function startTimer(){
+  startTime = Date.now();
+  if(timerId) clearInterval(timerId);
+  timerId = setInterval(() => {
+    elapsedSeconds = (Date.now() - startTime) / 1000;
+    timerEl.textContent = elapsedSeconds.toFixed(1).replace('.', ',');
+  },100);
+}
+
+function stopTimer(){
+  if(timerId) clearInterval(timerId);
+  timerId = null;
+  finalTimeEl.textContent = elapsedSeconds.toFixed(1).replace('.', ',');
+}
+
+function showFeedback(id,type,text){
+  const el = document.getElementById(id);
+  el.className = `feedback show ${type}`;
+  el.textContent = text;
+}
+function hideFeedback(id){
+  const el = document.getElementById(id);
+  el.className = 'feedback';
+  el.textContent = '';
+}
+
+function resetGame(){
+  elapsedSeconds = 0;
+  timerEl.textContent = '0,0';
+  score = 0;
+  usedQuestionIndices = [];
+  document.getElementById('streakValue').textContent = '0';
+  hideFeedback('feedback1'); hideFeedback('feedback2'); hideFeedback('feedback3');
+  showScreen('start');
+}
+
+function startGame(){
+  score = 0;
+  usedQuestionIndices = [];
+  document.getElementById('streakValue').textContent = '0';
+  startTimer();
+  prepareStage1();
+  showScreen('stage1');
+}
+
+function prepareStage1(){
+  hideFeedback('feedback1');
+  const start = Math.floor(Math.random() * (schemaLines.length - 4));
+  stage1Excerpt = schemaLines.slice(start, start + 5);
+  stage1Current = shuffle(stage1Excerpt);
+  renderStage1();
+}
+
+function renderStage1(){
+  const list = document.getElementById('sortableList');
+  list.innerHTML = '';
+  stage1Current.forEach((item,index) => {
+    const div = document.createElement('div');
+    div.className = 'sort-item';
+    div.innerHTML = `
+      <div><strong>${index + 1}.</strong> ${item}</div>
+      <div class="sort-controls">
+        <button class="mini" aria-label="Nach oben" ${index===0 ? 'disabled' : ''} onclick="moveStage1(${index}, -1)">▲</button>
+        <button class="mini" aria-label="Nach unten" ${index===stage1Current.length-1 ? 'disabled' : ''} onclick="moveStage1(${index}, 1)">▼</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+window.moveStage1 = function(index,dir){
+  const newIndex = index + dir;
+  if(newIndex < 0 || newIndex >= stage1Current.length) return;
+  [stage1Current[index], stage1Current[newIndex]] = [stage1Current[newIndex], stage1Current[index]];
+  renderStage1();
+};
+
+function checkStage1(){
+  const correct = stage1Current.every((item,idx) => item === stage1Excerpt[idx]);
+  if(correct){
+    showFeedback('feedback1','ok','Richtig! Der zusammenhängende Ausschnitt ist korrekt geordnet.');
+    setTimeout(() => { prepareStage2(); showScreen('stage2'); }, 900);
+  } else {
+    showFeedback('feedback1','error','Noch nicht richtig. Es startet sofort ein neuer zusammenhängender Ausschnitt.');
+    setTimeout(prepareStage1, 1200);
+  }
+}
+
+function pickStage2Excerpt(){
+  const start = Math.floor(Math.random() * (schemaLines.length - 4));
+  const excerpt = schemaLines.slice(start, start + 5);
+  const blankPositions = shuffle([0,1,2,3,4]).slice(0,2).sort((a,b)=>a-b);
+  const answers = blankPositions.map(i => excerpt[i]);
+  const wrongPool = schemaLines.filter(line => !excerpt.includes(line));
+  const wrongChoices = shuffle(wrongPool).slice(0,2);
+  return {
+    excerpt,
+    blankPositions,
+    answers,
+    choices: shuffle([...answers, ...wrongChoices])
+  };
+}
+
+function prepareStage2(){
+  hideFeedback('feedback2');
+  stage2Current = pickStage2Excerpt();
+  stage2Assignments = {};
+  renderStage2();
+}
+
+function renderStage2(){
+  const schemaBox = document.getElementById('stage2Schema');
+  const options = document.getElementById('stage2Options');
+  schemaBox.innerHTML = '';
+  options.innerHTML = '';
+
+  stage2Current.excerpt.forEach((line,idx) => {
+    const div = document.createElement('div');
+    div.className = 'schema-line';
+    if(stage2Current.blankPositions.includes(idx)){
+      const slot = document.createElement('div');
+      slot.className = 'dropzone';
+      slot.dataset.slotIndex = String(idx);
+      slot.textContent = 'Hier ablegen';
+      slot.addEventListener('dragover', handleDragOver);
+      slot.addEventListener('dragleave', handleDragLeave);
+      slot.addEventListener('drop', handleDrop);
+      div.appendChild(slot);
+    } else {
+      div.textContent = line;
+    }
+    schemaBox.appendChild(div);
+  });
+
+  stage2Current.choices.forEach(choice => {
+    const chip = document.createElement('div');
+    chip.className = 'option-chip';
+    chip.textContent = choice;
+    chip.draggable = true;
+    chip.dataset.value = choice;
+    chip.addEventListener('dragstart', handleDragStart);
+    chip.addEventListener('dragend', handleDragEnd);
+    options.appendChild(chip);
+  });
+}
+
+let draggedValue = null;
+function handleDragStart(e){
+  if(e.target.classList.contains('used')) { e.preventDefault(); return; }
+  draggedValue = e.target.dataset.value;
+  e.dataTransfer.setData('text/plain', draggedValue);
+}
+function handleDragEnd(){ draggedValue = null; }
+function handleDragOver(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('over');
+}
+function handleDragLeave(e){
+  e.currentTarget.classList.remove('over');
+}
+function handleDrop(e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('over');
+  const value = e.dataTransfer.getData('text/plain') || draggedValue;
+  if(!value) return;
+
+  // return previously used value from this slot
+  const existing = stage2Assignments[slot.dataset.slotIndex];
+  if(existing){
+    markChoiceUsed(existing, false);
+  }
+
+  // if value is already in another slot, free it there
+  Object.keys(stage2Assignments).forEach(key => {
+    if(stage2Assignments[key] === value){
+      delete stage2Assignments[key];
+      const other = document.querySelector(`.dropzone[data-slot-index="${key}"]`);
+      if(other){
+        other.textContent = 'Hier ablegen';
+        other.classList.remove('filled');
+      }
+    }
+  });
+
+  stage2Assignments[slot.dataset.slotIndex] = value;
+  slot.textContent = value;
+  slot.classList.add('filled');
+  markChoiceUsed(value, true);
+}
+function markChoiceUsed(value, used){
+  const chip = [...document.querySelectorAll('.option-chip')].find(el => el.dataset.value === value);
+  if(chip){
+    chip.classList.toggle('used', used);
+    chip.draggable = !used;
+  }
+}
+
+function checkStage2(){
+  const expectedFilled = stage2Current.blankPositions.every(pos => stage2Assignments[String(pos)]);
+  if(!expectedFilled){
+    showFeedback('feedback2','error','Bitte belegen Sie zuerst beide Lücken.');
+    return;
+  }
+  const correct = stage2Current.blankPositions.every(pos => stage2Assignments[String(pos)] === stage2Current.excerpt[pos]);
+  if(correct){
+    showFeedback('feedback2','ok','Sehr gut! Beide Lücken sind fachlich korrekt besetzt.');
+    setTimeout(() => { prepareStage3Question(); showScreen('stage3'); }, 900);
+  } else {
+    showFeedback('feedback2','error','Das passt noch nicht ganz. Es erscheint jetzt ein neuer zusammenhängender Ausschnitt.');
+    setTimeout(prepareStage2, 1200);
+  }
+}
+
+function nextQuestionIndex(){
+  if(usedQuestionIndices.length === stage3Questions.length) usedQuestionIndices = [];
+  const available = [...Array(stage3Questions.length).keys()].filter(i => !usedQuestionIndices.includes(i));
+  const picked = shuffle(available)[0];
+  usedQuestionIndices.push(picked);
+  return picked;
+}
+function prepareStage3Question(){
+  hideFeedback('feedback3');
+  currentQuestion = stage3Questions[nextQuestionIndex()];
+  renderQuestion();
+}
+function renderQuestion(){
+  document.getElementById('questionTitle').innerHTML = currentQuestion.question;
+  const answers = document.getElementById('answers');
+  answers.innerHTML = '';
+  currentQuestion.answers.forEach((answer,idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = answer;
+    btn.onclick = () => answerQuestion(idx);
+    answers.appendChild(btn);
+  });
+  document.getElementById('streakValue').textContent = String(score);
+}
+function answerQuestion(index){
+  const correct = index === currentQuestion.correct;
+  document.querySelectorAll('.answer-btn').forEach(btn => btn.disabled = true);
+  if(correct){
+    score += 1;
+    document.getElementById('streakValue').textContent = String(score);
+    showFeedback('feedback3','ok',`Richtig! ${currentQuestion.explanation}`);
+    if(score >= 4){
+      setTimeout(() => { stopTimer(); showScreen('final'); }, 1100);
+    } else {
+      setTimeout(prepareStage3Question, 1400);
+    }
+  } else {
+    showFeedback('feedback3','error',`Nicht ganz. ${currentQuestion.explanation}`);
+    setTimeout(prepareStage3Question, 1700);
+  }
+}
+
+document.getElementById('startGameBtn').addEventListener('click', startGame);
+document.getElementById('checkStage1').addEventListener('click', checkStage1);
+document.getElementById('newStage1').addEventListener('click', prepareStage1);
+document.getElementById('checkStage2').addEventListener('click', checkStage2);
+document.getElementById('newStage2').addEventListener('click', prepareStage2);
+document.getElementById('restartBtn').addEventListener('click', () => { if(timerId) clearInterval(timerId); resetGame(); });
+
+resetGame();
+</script>
+</body>
+</html>
